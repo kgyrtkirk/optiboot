@@ -350,6 +350,7 @@ typedef uint8_t pagelen_t;
  * supress some compile-time options we want.)
  */
 
+void pre_main(void) __attribute__ ((naked)) __attribute__ ((section (".init8")));
 int main(void) __attribute__ ((OS_main)) __attribute__ ((section (".init9")));
 
 void __attribute__((noinline)) putch(char);
@@ -360,8 +361,7 @@ void __attribute__((noinline)) watchdogConfig(uint8_t x);
 static inline void getNch(uint8_t);
 static inline void flash_led(uint8_t);
 static inline void watchdogReset();
-static __attribute__((noinline)) void writebuffer(int8_t memtype, uint8_t *mybuff,
-			       uint16_t address, pagelen_t len);
+static void __attribute__((noinline)) writebuffer(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
 
@@ -439,8 +439,17 @@ void appStart(uint8_t rstFlags) __attribute__ ((naked));
 #define appstart_vec (0)
 #endif // VIRTUAL_BOOT_PARTITION
 
-
-static inline void xchg(uint16_t address, pagelen_t length);
+/* everything that needs to run VERY early */
+void pre_main(void) {
+  // Allow convinient way of calling do_spm function - jump table,
+  //   so entry to this function will always be here, indepedent of compilation,
+  //   features etc
+  asm volatile (
+    "	rjmp	1f\n"
+    "	rjmp	writebuffer\n"
+    "1:\n"
+  );
+}
 /* main program starts here */
 int main(void) {
   uint8_t ch;
