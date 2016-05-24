@@ -233,11 +233,15 @@
  */
 
 #if !defined(OPTIBOOT_CUSTOMVER)
-#define OPTIBOOT_CUSTOMVER 0
+#define OPTIBOOT_CUSTOMVER 0xaa
 #endif
 
+#ifdef	WITH_OPTIBOOT_VERSION_IN_FLASH
 unsigned const int __attribute__((section(".version")))
 optiboot_version = 256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER;
+#else
+#define optiboot_version (256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER)
+#endif
 
 #include <inttypes.h>
 #include <avr/io.h>

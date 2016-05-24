@@ -211,7 +211,7 @@ endif
 # endif
 #
 
-#.PRECIOUS: %.elf
+.PRECIOUS: %.elf
 
 #---------------------------------------------------------------------------
 # "Chip-level Platform" targets.

@@ -14,7 +14,9 @@ Note: for me the board*txt files are not working so i recommend using:
 optiboot/bootloaders/optiboot$ make ISPTOOL=avrisp ISPPORT=/dev/ftdi ISPSPEED=-b19200  BAUD_RATE=57600 atmega328_isp LED_START_FLASHES=0 
 ```
 
-all unneccessary features of the bootloader should be disabled..i've got enough space by disabling LED_START_FLASHES.
+all unneccessary features of the bootloader have been disabled:
+ * led flashing
+ * version number at end of flash
 
 
 ![http://optiboot.googlecode.com/files/optiboot.png](http://optiboot.googlecode.com/files/optiboot.png)
