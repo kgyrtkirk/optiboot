@@ -1,5 +1,22 @@
 ## Optiboot Bootloader for Arduino and Atmel AVR ##
 
+## in this fork:
+
+ota capable optiboot
+
+ * ability to call flash writer function of the bootloader from the application
+ * new xchg() operation; takes the upper half of the flash and copies it to the lower part
+ ** this will enable me to do remote upgrades at the cost of sacraficing half of the flash memory
+
+Note: i'm using this only on my *pro mini boards*
+Note: for me the board*txt files are not working so i recommend using:
+```bash
+optiboot/bootloaders/optiboot$ make ISPTOOL=avrisp ISPPORT=/dev/ftdi ISPSPEED=-b19200  BAUD_RATE=57600 atmega328_isp LED_START_FLASHES=0 
+```
+
+all unneccessary features of the bootloader should be disabled..i've got enough space by disabling LED_START_FLASHES.
+
+
 ![http://optiboot.googlecode.com/files/optiboot.png](http://optiboot.googlecode.com/files/optiboot.png)
 
 Optiboot is an easy to install upgrade to the Arduino bootloader within Arduino boards. It provides the following features:

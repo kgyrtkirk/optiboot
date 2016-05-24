@@ -236,10 +236,9 @@
 #define OPTIBOOT_CUSTOMVER 0
 #endif
 
-unsigned const int __attribute__((section(".version"))) 
+unsigned const int __attribute__((section(".version")))
 optiboot_version = 256*(OPTIBOOT_MAJVER + OPTIBOOT_CUSTOMVER) + OPTIBOOT_MINVER;
 
-
 #include <inttypes.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
@@ -361,7 +360,7 @@ void __attribute__((noinline)) watchdogConfig(uint8_t x);
 static inline void getNch(uint8_t);
 static inline void flash_led(uint8_t);
 static inline void watchdogReset();
-static inline void writebuffer(int8_t memtype, uint8_t *mybuff,
+static __attribute__((noinline)) void writebuffer(int8_t memtype, uint8_t *mybuff,
 			       uint16_t address, pagelen_t len);
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
@@ -441,6 +440,7 @@ void appStart(uint8_t rstFlags) __attribute__ ((naked));
 #endif // VIRTUAL_BOOT_PARTITION
 
 
+static inline void xchg(uint16_t address, pagelen_t length);
 /* main program starts here */
 int main(void) {
   uint8_t ch;
@@ -854,11 +854,26 @@ void appStart(uint8_t rstFlags) {
     "ijmp\n"::[rstvec] "M"(appstart_vec)
   );
 }
+#include "avr/pgmspace.h"
+static inline void xchg(uint16_t address, pagelen_t len){
+	const uint16_t	MS=((FLASHEND)>>1)-512;
+	uint16_t off;
+	for(off=0;off<address;off+=SPM_PAGESIZE){
+		uint8_t ch;
+		uint16_t	k=0;
+		for(k=0;k<SPM_PAGESIZE;k++){
+			ch=pgm_read_byte_near(off+k+MS);
+			buff[k]=ch;
+		}
+		writebuffer('F',buff,off+k,SPM_PAGESIZE);
+	}
+}
+
 
 /*
  * void writebuffer(memtype, buffer, address, length)
  */
-static inline void writebuffer(int8_t memtype, uint8_t *mybuff,
+static void writebuffer(int8_t memtype, uint8_t *mybuff,
 			       uint16_t address, pagelen_t len)
 {
     switch (memtype) {
@@ -877,6 +892,9 @@ static inline void writebuffer(int8_t memtype, uint8_t *mybuff,
 	    ; // Error: wait for WDT
 #endif
 	break;
+    case 'X':
+    	xchg(address,len);
+    	break;
     default:  // FLASH
 	/*
 	 * Default to writing to Flash program memory.  By making this
