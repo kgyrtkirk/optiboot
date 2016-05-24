@@ -361,9 +361,9 @@ void __attribute__((noinline)) watchdogConfig(uint8_t x);
 static inline void getNch(uint8_t);
 static inline void flash_led(uint8_t);
 static inline void watchdogReset();
-static void __attribute__((noinline)) writebuffer(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
+static void __attribute__((noinline)) writebuffer(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
 
 #ifdef SOFT_UART
 void uartDelay() __attribute__ ((naked));
@@ -447,13 +447,13 @@ void pre_main(void) {
   asm volatile (
     "	rjmp	1f\n"
     "	rjmp	writebuffer\n"
-    "1:\n"
+    "1:\n" : :
+	[F] "i" (&writebuffer)
   );
 }
 /* main program starts here */
 int main(void) {
   uint8_t ch;
-
   /*
    * Making these local and in registers prevents the need for initializing
    * them, and also saves space because code no longer stores to memory.
