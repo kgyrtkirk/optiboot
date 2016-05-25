@@ -2,3 +2,9 @@
 *hex
 *elf
 *tmp.sh
+.cproject
+.project
+.settings
+.ino.cpp
+Release
+Debug
