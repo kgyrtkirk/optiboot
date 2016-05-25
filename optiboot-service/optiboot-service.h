@@ -12,7 +12,18 @@
 #pragma once
 #include <avr/boot.h>
 
-typedef void (*optiboot_service_t)(uint16_t address, uint8_t command, uint16_t data);
+/*
+ * We can never load flash with more than 1 page at a time, so we can save
+ * some code space on parts with smaller pagesize by using a smaller int.
+ */
+#if SPM_PAGESIZE > 255
+typedef uint16_t pagelen_t ;
+#else
+typedef uint8_t pagelen_t;
+#endif
+
+typedef void (*optiboot_service_t)(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
+//typedef void (*optiboot_service_t)(uint16_t address, uint8_t command, uint16_t data);
 
 /*
  * Devices with more than 64KB of flash:
@@ -32,24 +43,9 @@ const optiboot_service_t do_spm = (optiboot_service_t) ((FLASHEND - 511 + 2) >> 
 #endif
 
 /*
- * The same as do_spm but with disable/restore interrupts state
- * required to succesfull SPM execution
- *
- * On devices with more than 64kB flash, 16 bit address is not enough,
- * so there is also RAMPZ used in that case.
+ * currently: E: eeprom
+ * 				X: exchange
+ * 				others: flash
  */
 
-void do_spm_cli(optiboot_addr_t address, uint8_t command, uint16_t data) {
-	uint8_t sreg_save;
-
-	sreg_save = SREG;  // save old SREG value
-	asm volatile("cli");
-	// disable interrupts
-#ifdef RAMPZ
-	RAMPZ=(address>>16) & 0xff;  // address bits 23-16 goes to RAMPZ
-	do_spm((address & 0xffff),command,data);// do_spm accepts only lower 16 bits of address
-#else
-	do_spm(address, command, data); // 16 bit address - no problems to pass directly
-#endif
-	SREG = sreg_save; // restore last interrupts state
-}
+void optiboot_service(int8_t memtype, void *mybuff,uint16_t address, pagelen_t len);

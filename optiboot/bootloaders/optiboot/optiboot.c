@@ -869,16 +869,16 @@ void appStart(uint8_t rstFlags) {
 }
 #include "avr/pgmspace.h"
 static inline void xchg(uint16_t address, pagelen_t len){
-	const uint16_t	MS=((FLASHEND)>>1)-512;
+	const uint16_t	MS=((FLASHEND+1)-512)>>1;
 	uint16_t off;
 	for(off=0;off<address;off+=SPM_PAGESIZE){
 		uint8_t ch;
 		uint16_t	k=0;
 		for(k=0;k<SPM_PAGESIZE;k++){
-			ch=pgm_read_byte_near(off+k+MS);
+			ch=pgm_read_byte_near(MS+off+k);
 			buff[k]=ch;
 		}
-		writebuffer('F',buff,off+k,SPM_PAGESIZE);
+		writebuffer('F',buff,off,SPM_PAGESIZE);
 	}
 }
 
