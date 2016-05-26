@@ -6,17 +6,24 @@ ota capable optiboot
 
  * ability to call flash writer function of the bootloader from the application
  * new xchg() operation; takes the upper half of the flash and copies it to the lower part
- ** this will enable me to do remote upgrades at the cost of sacraficing half of the flash memory
+   (this will enable me to do remote upgrades at the cost of sacraficing half of the flash memory)
+
 
 Note: i'm using this only on my *pro mini boards*
+
 Note: for me the board*txt files are not working so i recommend using:
+
 ```bash
 optiboot/bootloaders/optiboot$ make ISPTOOL=avrisp ISPPORT=/dev/ftdi ISPSPEED=-b19200  BAUD_RATE=57600 atmega328_isp LED_START_FLASHES=0 
 ```
 
 all unneccessary features of the bootloader have been disabled:
+
  * led flashing
  * version number at end of flash
+
+#### it's not ready yet - but it works.
+
 
 
 ![http://optiboot.googlecode.com/files/optiboot.png](http://optiboot.googlecode.com/files/optiboot.png)
