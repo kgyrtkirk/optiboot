@@ -531,6 +531,15 @@ int main(void) {
 #endif
 #endif
 
+// these test might be impossible; but just to be on the safe side
+#if ((FLASHEND+1) % SPM_PAGESIZE)!=0
+#error "flashsize is not divisible by pagesize"
+#endif
+#if (((FLASHEND+1) / SPM_PAGESIZE) & 1 ) != 0
+#error "flashsize should be 2k pagesize"
+#endif
+
+
   // Set up watchdog to trigger after 1s
   watchdogConfig(WATCHDOG_1S);
 
