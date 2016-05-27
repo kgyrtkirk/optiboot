@@ -367,7 +367,11 @@ static inline void flash_led(uint8_t);
 static inline void watchdogReset();
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
-static void __attribute__((noinline)) writebuffer(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
+static void __attribute__((noinline)) writebuffer(
+			int8_t memtype,
+			uint8_t *mybuff,
+			uint16_t address,
+			pagelen_t len);
 
 #ifdef SOFT_UART
 void uartDelay() __attribute__ ((naked));
@@ -455,6 +459,17 @@ void pre_main(void) {
 	[F] "i" (&writebuffer)
   );
 }
+
+struct STK500Command {
+	uint8_t		opCode;
+	uint8_t		memtype;
+	uint16_t	address;
+	pagelen_t	length;
+	uint8_t		*buffer;
+} __attribute__((packed));
+
+typedef struct STK500Command STK500Command_t;
+
 /* main program starts here */
 int main(void) {
   uint8_t ch;
@@ -464,8 +479,7 @@ int main(void) {
    * (initializing address keeps the compiler happy, but isn't really
    *  necessary, and uses 4 bytes of flash.)
    */
-  register uint16_t address = 0;
-  register pagelen_t  length;
+  STK500Command_t	cmd;
 
   // After the zero init loop, this is the first code to run.
   //
@@ -576,7 +590,7 @@ int main(void) {
       RAMPZ = (newAddress & 0x8000) ? 1 : 0;
 #endif
       newAddress += newAddress; // Convert from word address to byte address
-      address = newAddress;
+      cmd.address = newAddress;
       verifySpace();
     }
     else if(ch == STK_UNIVERSAL) {
@@ -589,14 +603,13 @@ int main(void) {
       // PROGRAM PAGE - we support flash programming only, not EEPROM
       uint8_t desttype;
       uint8_t *bufPtr;
-      pagelen_t savelength;
+      pagelen_t length;
 
       GETLENGTH(length);
-      savelength = length;
-      desttype = getch();
+      cmd.memtype = getch();
 
       // read a page worth of contents
-      bufPtr = buff;
+      bufPtr = cmd.buffer;//cmd.buffer;
       do *bufPtr++ = getch();
       while (--length);
 
@@ -658,20 +671,20 @@ int main(void) {
 #endif // FLASHEND
 #endif // VBP
 
-      writebuffer(desttype, buff, address, savelength);
+      writebuffer(cmd.memtype, cmd.buffer, cmd.address, cmd.length);
 
 
     }
     /* Read memory block mode, length is big endian.  */
     else if(ch == STK_READ_PAGE) {
       uint8_t desttype;
-      GETLENGTH(length);
+      GETLENGTH(cmd.length);
 
-      desttype = getch();
+      cmd.memtype=getch();
 
       verifySpace();
 
-      read_mem(desttype, address, length);
+      read_mem(cmd.memtype, cmd.address, cmd.length);
     }
 
     /* Get device signature bytes  */
