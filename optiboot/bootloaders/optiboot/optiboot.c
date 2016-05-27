@@ -367,7 +367,7 @@ static inline void flash_led(uint8_t);
 static inline void watchdogReset();
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
-static void __attribute__((noinline)) writebuffer(
+static void __attribute__((noinline)) stk500service(
 			int8_t memtype,
 			uint8_t *mybuff,
 			uint16_t address,
@@ -454,9 +454,9 @@ void pre_main(void) {
   //   features etc
   asm volatile (
     "	rjmp	1f\n"
-    "	rjmp	writebuffer\n"
+    "	rjmp	stk500service\n"
     "1:\n" : :
-	[F] "i" (&writebuffer)
+	[F] "i" (&stk500service)
   );
 }
 
@@ -671,7 +671,7 @@ int main(void) {
 #endif // FLASHEND
 #endif // VBP
 
-      writebuffer(cmd.memtype, cmd.buffer, cmd.address, cmd.length);
+      stk500service(cmd.memtype, cmd.buffer, cmd.address, cmd.length);
 
 
     }
@@ -891,7 +891,7 @@ static inline void xchg(uint16_t address, pagelen_t len){
 			ch=pgm_read_byte_near(MS+off+k);
 			buff[k]=ch;
 		}
-		writebuffer('F',buff,off,SPM_PAGESIZE);
+		stk500service('F',buff,off,SPM_PAGESIZE);
 	}
 }
 
@@ -899,7 +899,7 @@ static inline void xchg(uint16_t address, pagelen_t len){
 /*
  * void writebuffer(memtype, buffer, address, length)
  */
-static void writebuffer(int8_t memtype, uint8_t *mybuff,
+static void stk500service(int8_t memtype, uint8_t *mybuff,
 			       uint16_t address, pagelen_t len)
 {
     switch (memtype) {
