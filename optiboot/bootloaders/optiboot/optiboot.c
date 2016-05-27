@@ -616,61 +616,6 @@ int main(void) {
       // Read command terminator, start reply
       verifySpace();
 
-#ifdef VIRTUAL_BOOT_PARTITION
-#if FLASHEND > 8192
-/*
- * AVR with 4-byte ISR Vectors and "jmp"
- * WARNING: this works only up to 128KB flash!
- */
-      if (address == 0) {
-	// This is the reset vector page. We need to live-patch the
-	// code so the bootloader runs first.
-	//
-	// Save jmp targets (for "Verify")
-	rstVect0_sav = buff[rstVect0];
-	rstVect1_sav = buff[rstVect1];
-	saveVect0_sav = buff[saveVect0];
-	saveVect1_sav = buff[saveVect1];
-
-        // Move RESET jmp target to 'save' vector
-        buff[saveVect0] = rstVect0_sav;
-        buff[saveVect1] = rstVect1_sav;
-
-        // Add jump to bootloader at RESET vector
-        // WARNING: this works as long as 'main' is in first section
-        buff[rstVect0] = ((uint16_t)main) & 0xFF;
-        buff[rstVect1] = ((uint16_t)main) >> 8;
-      }
-
-#else
-/*
- * AVR with 2-byte ISR Vectors and rjmp
- */
-      if ((uint16_t)(void*)address == rstVect0) {
-        // This is the reset vector page. We need to live-patch
-        // the code so the bootloader runs first.
-        //
-        // Move RESET vector to 'save' vector
-	// Save jmp targets (for "Verify")
-	rstVect0_sav = buff[rstVect0];
-	rstVect1_sav = buff[rstVect1];
-	saveVect0_sav = buff[saveVect0];
-	saveVect1_sav = buff[saveVect1];
-
-	// Instruction is a relative jump (rjmp), so recalculate.
-	uint16_t vect=(rstVect0_sav & 0xff) | ((rstVect1_sav & 0x0f)<<8); //calculate 12b displacement
-	vect = (vect-save_vect_num) & 0x0fff; //substract 'save' interrupt position and wrap around 4096
-        // Move RESET jmp target to 'save' vector
-        buff[saveVect0] = vect & 0xff;
-        buff[saveVect1] = (vect >> 8) | 0xc0; //
-        // Add rjump to bootloader at RESET vector
-        vect = ((uint16_t)main) &0x0fff; //WARNIG: this works as long as 'main' is in first section
-        buff[0] = vect & 0xFF; // rjmp 0x1c00 instruction
-	buff[1] = (vect >> 8) | 0xC0;
-      }
-#endif // FLASHEND
-#endif // VBP
-
       stk500service(cmd.memtype, cmd.buffer, cmd.address, cmd.length);
 
 
@@ -928,6 +873,64 @@ static void stk500service(int8_t memtype, uint8_t *mybuff,
 	 * space on chips that don't support any other memory types.
 	 */
 	{
+
+		// FIXME: this virtual partition thing will not compile...but i've kept it where it should live;
+		// because my application will not use it i wont fix it; but there will be only minor issues with it
+#ifdef VIRTUAL_BOOT_PARTITION
+#if FLASHEND > 8192
+/*
+ * AVR with 4-byte ISR Vectors and "jmp"
+ * WARNING: this works only up to 128KB flash!
+ */
+      if (address == 0) {
+	// This is the reset vector page. We need to live-patch the
+	// code so the bootloader runs first.
+	//
+	// Save jmp targets (for "Verify")
+	rstVect0_sav = buff[rstVect0];
+	rstVect1_sav = buff[rstVect1];
+	saveVect0_sav = buff[saveVect0];
+	saveVect1_sav = buff[saveVect1];
+
+        // Move RESET jmp target to 'save' vector
+        buff[saveVect0] = rstVect0_sav;
+        buff[saveVect1] = rstVect1_sav;
+
+        // Add jump to bootloader at RESET vector
+        // WARNING: this works as long as 'main' is in first section
+        buff[rstVect0] = ((uint16_t)main) & 0xFF;
+        buff[rstVect1] = ((uint16_t)main) >> 8;
+      }
+
+#else
+/*
+ * AVR with 2-byte ISR Vectors and rjmp
+ */
+      if ((uint16_t)(void*)address == rstVect0) {
+        // This is the reset vector page. We need to live-patch
+        // the code so the bootloader runs first.
+        //
+        // Move RESET vector to 'save' vector
+	// Save jmp targets (for "Verify")
+	rstVect0_sav = buff[rstVect0];
+	rstVect1_sav = buff[rstVect1];
+	saveVect0_sav = buff[saveVect0];
+	saveVect1_sav = buff[saveVect1];
+
+	// Instruction is a relative jump (rjmp), so recalculate.
+	uint16_t vect=(rstVect0_sav & 0xff) | ((rstVect1_sav & 0x0f)<<8); //calculate 12b displacement
+	vect = (vect-save_vect_num) & 0x0fff; //substract 'save' interrupt position and wrap around 4096
+        // Move RESET jmp target to 'save' vector
+        buff[saveVect0] = vect & 0xff;
+        buff[saveVect1] = (vect >> 8) | 0xc0; //
+        // Add rjump to bootloader at RESET vector
+        vect = ((uint16_t)main) &0x0fff; //WARNIG: this works as long as 'main' is in first section
+        buff[0] = vect & 0xFF; // rjmp 0x1c00 instruction
+	buff[1] = (vect >> 8) | 0xC0;
+      }
+#endif // FLASHEND
+#endif // VBP
+
 	    // Copy buffer into programming buffer
 	    uint8_t *bufPtr = mybuff;
 	    uint16_t addrPtr = (uint16_t)(void*)address;
