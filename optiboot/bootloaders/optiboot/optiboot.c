@@ -480,6 +480,7 @@ int main(void) {
    *  necessary, and uses 4 bytes of flash.)
    */
   STK500Command_t	cmd;
+  cmd.buffer=buff;
 
   // After the zero init loop, this is the first code to run.
   //
@@ -606,6 +607,7 @@ int main(void) {
       pagelen_t length;
 
       GETLENGTH(length);
+      cmd.length=length;
       cmd.memtype = getch();
 
       // read a page worth of contents
