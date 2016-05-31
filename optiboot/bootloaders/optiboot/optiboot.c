@@ -367,7 +367,11 @@ static inline void flash_led(uint8_t);
 static inline void watchdogReset();
 static inline void read_mem(uint8_t memtype,
 			    uint16_t address, pagelen_t len);
-static void __attribute__((noinline)) writebuffer(int8_t memtype, uint8_t *mybuff,uint16_t address, pagelen_t len);
+static void __attribute__((noinline)) stk500service(
+			int8_t memtype,
+			uint8_t *mybuff,
+			uint16_t address,
+			pagelen_t len);
 
 #ifdef SOFT_UART
 void uartDelay() __attribute__ ((naked));
@@ -450,11 +454,22 @@ void pre_main(void) {
   //   features etc
   asm volatile (
     "	rjmp	1f\n"
-    "	rjmp	writebuffer\n"
+    "	rjmp	stk500service\n"
     "1:\n" : :
-	[F] "i" (&writebuffer)
+	[F] "i" (&stk500service)
   );
 }
+
+struct STK500Command {
+	uint8_t		opCode;
+	uint8_t		memtype;
+	uint16_t	address;
+	pagelen_t	length;
+	uint8_t		*buffer;
+} __attribute__((packed));
+
+typedef struct STK500Command STK500Command_t;
+
 /* main program starts here */
 int main(void) {
   uint8_t ch;
@@ -464,8 +479,8 @@ int main(void) {
    * (initializing address keeps the compiler happy, but isn't really
    *  necessary, and uses 4 bytes of flash.)
    */
-  register uint16_t address = 0;
-  register pagelen_t  length;
+  STK500Command_t	cmd;
+  cmd.buffer=buff;
 
   // After the zero init loop, this is the first code to run.
   //
@@ -515,6 +530,15 @@ int main(void) {
   UART_SRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
 #endif
 #endif
+
+// these test might be impossible; but just to be on the safe side
+#if ((FLASHEND+1) % SPM_PAGESIZE)!=0
+#error "flashsize is not divisible by pagesize"
+#endif
+#if (((FLASHEND+1) / SPM_PAGESIZE) & 1 ) != 0
+#error "flashsize should be 2k pagesize"
+#endif
+
 
   // Set up watchdog to trigger after 1s
   watchdogConfig(WATCHDOG_1S);
@@ -576,7 +600,7 @@ int main(void) {
       RAMPZ = (newAddress & 0x8000) ? 1 : 0;
 #endif
       newAddress += newAddress; // Convert from word address to byte address
-      address = newAddress;
+      cmd.address = newAddress;
       verifySpace();
     }
     else if(ch == STK_UNIVERSAL) {
@@ -589,89 +613,34 @@ int main(void) {
       // PROGRAM PAGE - we support flash programming only, not EEPROM
       uint8_t desttype;
       uint8_t *bufPtr;
-      pagelen_t savelength;
+      pagelen_t length;
 
       GETLENGTH(length);
-      savelength = length;
-      desttype = getch();
+      cmd.length=length;
+      cmd.memtype = getch();
 
       // read a page worth of contents
-      bufPtr = buff;
+      bufPtr = cmd.buffer;//cmd.buffer;
       do *bufPtr++ = getch();
       while (--length);
 
       // Read command terminator, start reply
       verifySpace();
 
-#ifdef VIRTUAL_BOOT_PARTITION
-#if FLASHEND > 8192
-/*
- * AVR with 4-byte ISR Vectors and "jmp"
- * WARNING: this works only up to 128KB flash!
- */
-      if (address == 0) {
-	// This is the reset vector page. We need to live-patch the
-	// code so the bootloader runs first.
-	//
-	// Save jmp targets (for "Verify")
-	rstVect0_sav = buff[rstVect0];
-	rstVect1_sav = buff[rstVect1];
-	saveVect0_sav = buff[saveVect0];
-	saveVect1_sav = buff[saveVect1];
-
-        // Move RESET jmp target to 'save' vector
-        buff[saveVect0] = rstVect0_sav;
-        buff[saveVect1] = rstVect1_sav;
-
-        // Add jump to bootloader at RESET vector
-        // WARNING: this works as long as 'main' is in first section
-        buff[rstVect0] = ((uint16_t)main) & 0xFF;
-        buff[rstVect1] = ((uint16_t)main) >> 8;
-      }
-
-#else
-/*
- * AVR with 2-byte ISR Vectors and rjmp
- */
-      if ((uint16_t)(void*)address == rstVect0) {
-        // This is the reset vector page. We need to live-patch
-        // the code so the bootloader runs first.
-        //
-        // Move RESET vector to 'save' vector
-	// Save jmp targets (for "Verify")
-	rstVect0_sav = buff[rstVect0];
-	rstVect1_sav = buff[rstVect1];
-	saveVect0_sav = buff[saveVect0];
-	saveVect1_sav = buff[saveVect1];
-
-	// Instruction is a relative jump (rjmp), so recalculate.
-	uint16_t vect=(rstVect0_sav & 0xff) | ((rstVect1_sav & 0x0f)<<8); //calculate 12b displacement
-	vect = (vect-save_vect_num) & 0x0fff; //substract 'save' interrupt position and wrap around 4096
-        // Move RESET jmp target to 'save' vector
-        buff[saveVect0] = vect & 0xff;
-        buff[saveVect1] = (vect >> 8) | 0xc0; //
-        // Add rjump to bootloader at RESET vector
-        vect = ((uint16_t)main) &0x0fff; //WARNIG: this works as long as 'main' is in first section
-        buff[0] = vect & 0xFF; // rjmp 0x1c00 instruction
-	buff[1] = (vect >> 8) | 0xC0;
-      }
-#endif // FLASHEND
-#endif // VBP
-
-      writebuffer(desttype, buff, address, savelength);
+      stk500service(cmd.memtype, cmd.buffer, cmd.address, cmd.length);
 
 
     }
     /* Read memory block mode, length is big endian.  */
     else if(ch == STK_READ_PAGE) {
       uint8_t desttype;
-      GETLENGTH(length);
+      GETLENGTH(cmd.length);
 
-      desttype = getch();
+      cmd.memtype=getch();
 
       verifySpace();
 
-      read_mem(desttype, address, length);
+      read_mem(cmd.memtype, cmd.address, cmd.length);
     }
 
     /* Get device signature bytes  */
@@ -878,7 +847,7 @@ static inline void xchg(uint16_t address, pagelen_t len){
 			ch=pgm_read_byte_near(MS+off+k);
 			buff[k]=ch;
 		}
-		writebuffer('F',buff,off,SPM_PAGESIZE);
+		stk500service('F',buff,off,SPM_PAGESIZE);
 	}
 }
 
@@ -886,7 +855,7 @@ static inline void xchg(uint16_t address, pagelen_t len){
 /*
  * void writebuffer(memtype, buffer, address, length)
  */
-static void writebuffer(int8_t memtype, uint8_t *mybuff,
+static void stk500service(int8_t memtype, uint8_t *mybuff,
 			       uint16_t address, pagelen_t len)
 {
     switch (memtype) {
@@ -915,6 +884,64 @@ static void writebuffer(int8_t memtype, uint8_t *mybuff,
 	 * space on chips that don't support any other memory types.
 	 */
 	{
+
+		// FIXME: this virtual partition thing will not compile...but i've kept it where it should live;
+		// because my application will not use it i wont fix it; but there will be only minor issues with it
+#ifdef VIRTUAL_BOOT_PARTITION
+#if FLASHEND > 8192
+/*
+ * AVR with 4-byte ISR Vectors and "jmp"
+ * WARNING: this works only up to 128KB flash!
+ */
+      if (address == 0) {
+	// This is the reset vector page. We need to live-patch the
+	// code so the bootloader runs first.
+	//
+	// Save jmp targets (for "Verify")
+	rstVect0_sav = buff[rstVect0];
+	rstVect1_sav = buff[rstVect1];
+	saveVect0_sav = buff[saveVect0];
+	saveVect1_sav = buff[saveVect1];
+
+        // Move RESET jmp target to 'save' vector
+        buff[saveVect0] = rstVect0_sav;
+        buff[saveVect1] = rstVect1_sav;
+
+        // Add jump to bootloader at RESET vector
+        // WARNING: this works as long as 'main' is in first section
+        buff[rstVect0] = ((uint16_t)main) & 0xFF;
+        buff[rstVect1] = ((uint16_t)main) >> 8;
+      }
+
+#else
+/*
+ * AVR with 2-byte ISR Vectors and rjmp
+ */
+      if ((uint16_t)(void*)address == rstVect0) {
+        // This is the reset vector page. We need to live-patch
+        // the code so the bootloader runs first.
+        //
+        // Move RESET vector to 'save' vector
+	// Save jmp targets (for "Verify")
+	rstVect0_sav = buff[rstVect0];
+	rstVect1_sav = buff[rstVect1];
+	saveVect0_sav = buff[saveVect0];
+	saveVect1_sav = buff[saveVect1];
+
+	// Instruction is a relative jump (rjmp), so recalculate.
+	uint16_t vect=(rstVect0_sav & 0xff) | ((rstVect1_sav & 0x0f)<<8); //calculate 12b displacement
+	vect = (vect-save_vect_num) & 0x0fff; //substract 'save' interrupt position and wrap around 4096
+        // Move RESET jmp target to 'save' vector
+        buff[saveVect0] = vect & 0xff;
+        buff[saveVect1] = (vect >> 8) | 0xc0; //
+        // Add rjump to bootloader at RESET vector
+        vect = ((uint16_t)main) &0x0fff; //WARNIG: this works as long as 'main' is in first section
+        buff[0] = vect & 0xFF; // rjmp 0x1c00 instruction
+	buff[1] = (vect >> 8) | 0xC0;
+      }
+#endif // FLASHEND
+#endif // VBP
+
 	    // Copy buffer into programming buffer
 	    uint8_t *bufPtr = mybuff;
 	    uint16_t addrPtr = (uint16_t)(void*)address;
