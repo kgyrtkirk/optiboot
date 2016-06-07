@@ -49,3 +49,6 @@ const optiboot_service_t do_spm = (optiboot_service_t) ((FLASHEND - 511 + 2) >> 
  */
 
 void optiboot_service(int8_t memtype, void *mybuff,uint16_t address, pagelen_t len);
+
+const uint16_t	OTA_FLASH_START=((FLASHEND+1)-512)>>1;
+const uint16_t	OTA_FLASH_END=((FLASHEND+1)-512);
