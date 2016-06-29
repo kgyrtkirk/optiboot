@@ -849,6 +849,8 @@ static inline void xchg(uint16_t address, pagelen_t len){
 		}
 		stk500service('F',buff,off,SPM_PAGESIZE);
 	}
+	while (1)
+		; // Error: wait for WDT
 }
 
 
