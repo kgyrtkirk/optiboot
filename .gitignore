@@ -9,3 +9,4 @@
 Release
 Debug
 /tmp.*
+/preshared.key
